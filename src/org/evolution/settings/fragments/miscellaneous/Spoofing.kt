@@ -221,6 +221,18 @@ class Spoofing : SettingsPreferenceFragment() {
                 ExpressiveGroup(title = stringResource(R.string.spoofing_identity_category)) {
                     item {
                         ExpressiveNavRow(
+                            title = stringResource(R.string.banking_compatibility_title),
+                            summary = stringResource(R.string.banking_compatibility_summary),
+                            onClick = {
+                                onOpen(
+                                    BankingCompatibilitySettings::class.java,
+                                    R.string.banking_compatibility_title,
+                                )
+                            },
+                        )
+                    }
+                    item {
+                        ExpressiveNavRow(
                             title = stringResource(R.string.user_selectable_app_spoofing_title),
                             summary = stringResource(R.string.user_selectable_app_spoofing_summary),
                             onClick = {
