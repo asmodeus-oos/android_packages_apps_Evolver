@@ -83,6 +83,8 @@ public final class UrlUtils {
      */
     public static String buildGithubUrl(String username) {
         String clean = trimToEmpty(username);
-        return clean.isEmpty() ? null : "https://github.com/" + clean;
+        if (clean.isEmpty()) return null;
+        if (isValidHttpUrl(clean)) return clean;
+        return "https://github.com/" + clean;
     }
 }

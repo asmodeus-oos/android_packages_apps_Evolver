@@ -145,9 +145,10 @@ class About : SettingsPreferenceFragment(), Preference.OnPreferenceChangeListene
 
     private fun openMaintainersSheet() {
         if (!isUiSafe()) return
+        val maintainers = injectLocalMaintainer(mCachedMaintainerList)
         val sheet = CurrentMaintainersSheet().apply {
-            entries   = toUiEntries(mCachedMaintainerList)
-            isLoading = mCachedMaintainerList.isEmpty()
+            entries   = toUiEntries(maintainers)
+            isLoading = maintainers.isEmpty()
         }
         sheet.show(parentFragmentManager, CurrentMaintainersSheet.TAG)
         mTreeCaches.values.forEach { it.invalidate() }
@@ -158,8 +159,42 @@ class About : SettingsPreferenceFragment(), Preference.OnPreferenceChangeListene
     // Maintainer loading
     // -------------------------------------------------------------------------
 
+    private fun injectLocalMaintainer(list: List<MaintainerInfo>): List<MaintainerInfo> {
+        val ctx = context ?: return list
+        val localMaintainer = UrlUtils.trimToEmpty(ctx.getString(R.string.build_maintainer_summary))
+        if (localMaintainer.isEmpty() || localMaintainer.equals("Unknown", ignoreCase = true)) {
+            return list
+        }
+        val rawGithub = UrlUtils.trimToEmpty(ctx.getString(R.string.build_maintainer_github))
+        val cleanGithub = rawGithub
+            .replace("https://github.com/", "")
+            .replace("http://github.com/", "")
+            .trimEnd('/')
+        val localDonate = UrlUtils.trimToEmpty(ctx.getString(R.string.build_maintainer_donate_url))
+        val clickUrl = if (localDonate.isNotEmpty()) localDonate else (UrlUtils.buildGithubUrl(cleanGithub) ?: "")
+
+        val deviceLabel = android.os.Build.MODEL
+        val existingIndex = list.indexOfFirst { it.maintainer.equals(localMaintainer, ignoreCase = true) }
+        val mutable = list.toMutableList()
+        val entry = MaintainerInfo(
+            maintainer    = localMaintainer,
+            summary       = deviceLabel,
+            github        = cleanGithub,
+            donateUrl     = localDonate.ifEmpty { null },
+            clickUrl      = clickUrl.ifEmpty { null },
+            forumUrls     = emptyList(),
+            newestBuildTs = System.currentTimeMillis() / 1000L
+        )
+        if (existingIndex >= 0) {
+            mutable[existingIndex] = entry
+        } else {
+            mutable.add(0, entry)
+        }
+        return mutable
+    }
+
     private fun loadCurrentMaintainers(notifySheet: Boolean = false) {
-        val cached = readCachedMaintainers()
+        val cached = injectLocalMaintainer(readCachedMaintainers())
         val cachedUpdatedAt = mPrefs.getLong(PREF_LAST_UPDATED, 0L)
         if (cached.isNotEmpty()) {
             mCachedMaintainerList = cached
@@ -184,7 +219,8 @@ class About : SettingsPreferenceFragment(), Preference.OnPreferenceChangeListene
             if (result.notModified) {
                 mTreeCaches.values.forEach { it.touchLastCheck() }
                 if (notifySheet) {
-                    mMainHandler.post { refreshOpenSheet(mCachedMaintainerList) }
+                    val maintainers = injectLocalMaintainer(mCachedMaintainerList)
+                    mMainHandler.post { refreshOpenSheet(maintainers) }
                 }
                 return@execute
             }
@@ -196,7 +232,7 @@ class About : SettingsPreferenceFragment(), Preference.OnPreferenceChangeListene
                 mTreeCaches[branch]?.write(etag, lastModified)
             }
 
-            val finalMaintainers = result.maintainers
+            val finalMaintainers = injectLocalMaintainer(result.maintainers)
             val finalGithubToPaypal = result.githubToPaypal
 
             mMainHandler.post {
@@ -213,7 +249,7 @@ class About : SettingsPreferenceFragment(), Preference.OnPreferenceChangeListene
         if (!isUiSafe()) return
         val sheet = parentFragmentManager
             .findFragmentByTag(CurrentMaintainersSheet.TAG) as? CurrentMaintainersSheet
-        sheet?.refresh(toUiEntries(maintainers))
+        sheet?.refresh(toUiEntries(injectLocalMaintainer(maintainers)))
     }
 
     // -------------------------------------------------------------------------
